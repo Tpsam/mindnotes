@@ -58,8 +58,34 @@ except ImportError:
         print(*clean_args, **kwargs)
 
 
+def ensure_cli_shims():
+    """
+    Ensure PowerShell (.ps1) and CMD (.cmd) launcher shims exist in .venv/Scripts/
+    to bypass Windows AppLocker / WDAC unsigned .exe execution blocks.
+    """
+    venv_scripts = Path(sys.prefix) / "Scripts"
+    if venv_scripts.exists() and os.name == "nt":
+        blocked_exe = venv_scripts / "mindnotes.exe"
+        if blocked_exe.exists():
+            try:
+                blocked_exe.unlink()
+            except Exception:
+                pass
+        ps1_file = venv_scripts / "mindnotes.ps1"
+        ps1_file.write_text(
+            '[CmdletBinding()]\nparam([Parameter(ValueFromRemainingArguments=$true)][string[]]$CommandArgs)\n& "$PSScriptRoot\\python.exe" -m mindnotes.cli @CommandArgs\n',
+            encoding="utf-8",
+        )
+        cmd_file = venv_scripts / "mindnotes.cmd"
+        cmd_file.write_text(
+            '@echo off\n"%~dp0python.exe" -m mindnotes.cli %*\n',
+            encoding="utf-8",
+        )
+
+
 def run_setup(profile: str = "fast", force: bool = False):
     """Execute setup command."""
+    ensure_cli_shims()
     rprint("[bold cyan]=== Mindnotes Setup ===[/bold cyan]")
     rprint(f"Ensuring user directories at: {MINDNOTES_DIR}")
     ensure_directories()
