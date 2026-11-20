@@ -30,7 +30,7 @@ from mindnotes.config import (
 )
 from mindnotes.pipeline import process_audio
 
-AUDIO_EXTENSIONS = {".mp3", ".m4a", ".wav", ".aac", ".flac", ".ogg", ".wma"}
+AUDIO_EXTENSIONS = {".mp3", ".m4a", ".wav", ".aac", ".flac", ".ogg", ".wma", ".mp4", ".m4r"}
 
 
 def wait_for_file_settled(file_path: Path, settle_seconds: float = 2.0, max_wait: float = 60.0) -> bool:
@@ -93,13 +93,21 @@ if HAS_WATCHDOG:
             if not event.is_directory:
                 self._handle_file(Path(event.dest_path))
 
+        def process_existing_files(self) -> None:
+            """Scan and process files already in inbox on watcher startup."""
+            if not INBOX_DIR.exists():
+                return
+            for p in sorted(INBOX_DIR.glob("**/*")):
+                if p.is_file() and p.suffix.lower() in AUDIO_EXTENSIONS and not p.name.startswith("."):
+                    self._handle_file(p)
+
         def _handle_file(self, file_path: Path) -> None:
             p = file_path.resolve()
 
             if p.name.startswith(".") or p.name.startswith("~") or p.suffix.lower() not in AUDIO_EXTENSIONS:
                 return
 
-            if p in self._processing:
+            if p in self._processing or not p.exists():
                 return
 
             self._processing.add(p)
@@ -134,7 +142,8 @@ if HAS_WATCHDOG:
                 self._processing.discard(p)
 else:
     class AudioDropHandler:
-        pass
+        def process_existing_files(self):
+            pass
 
 
 def start_watcher(foreground: bool = True) -> Optional[Observer]:
@@ -153,7 +162,10 @@ def start_watcher(foreground: bool = True) -> Optional[Observer]:
     print("[bold green]Mindnotes folder watcher is active![/bold green]")
     print(f"• Notes inbox:   {INBOX_NOTES_DIR}")
     print(f"• Content inbox: {INBOX_CONTENT_DIR}")
-    print("Drop audio files (.mp3, .m4a, .wav) into either folder to process automatically.\n")
+    print("Drop audio files (.mp3, .m4a, .wav, .mp4) into either folder to process automatically.\n")
+
+    # Check for files already present when watcher starts
+    handler.process_existing_files()
 
     if foreground:
         try:
