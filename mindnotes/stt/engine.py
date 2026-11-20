@@ -139,6 +139,48 @@ class TranscriptionEngine:
             pcm_data = array.array("h", raw_bytes)
             samples = [s / 32768.0 for s in pcm_data]
 
+        profile_data = self.config.get("stt", {}).get("profiles", {}).get(self.profile, {})
+        model_type = profile_data.get("type", "whisper")
+
+        # Whisper models only support waves < 30 seconds.
+        # When duration > 28.0s, split into silence-aware chunks.
+        if model_type == "whisper" and duration > 28.0:
+            from mindnotes.audio.chunker import chunk_audio
+
+            chunks = chunk_audio(
+                samples=samples,
+                sample_rate=sample_rate,
+                max_chunk_sec=28.0,
+                min_chunk_sec=20.0,
+            )
+            segments: List[TranscriptSegment] = []
+            text_parts: List[str] = []
+
+            for chunk in chunks:
+                if len(chunk.samples) == 0:
+                    continue
+                stream = self._recognizer.create_stream()
+                stream.accept_waveform(sample_rate, chunk.samples)
+                self._recognizer.decode_stream(stream)
+                c_text = stream.result.text.strip() if hasattr(stream.result, "text") else str(stream.result).strip()
+                if c_text:
+                    text_parts.append(c_text)
+                    segments.append(
+                        TranscriptSegment(
+                            start=chunk.start_sec,
+                            end=chunk.end_sec,
+                            text=c_text,
+                        )
+                    )
+
+            full_text = " ".join(text_parts)
+            return TranscriptResult(
+                text=full_text,
+                segments=segments,
+                duration_seconds=duration,
+                model_name=self.profile,
+            )
+
         stream = self._recognizer.create_stream()
         stream.accept_waveform(sample_rate, samples)
         self._recognizer.decode_stream(stream)
@@ -147,7 +189,7 @@ class TranscriptionEngine:
         raw_text = result.text.strip() if hasattr(result, "text") else str(result).strip()
 
         segments: List[TranscriptSegment] = []
-        if not segments and raw_text:
+        if raw_text:
             segments.append(
                 TranscriptSegment(
                     start=0.0,

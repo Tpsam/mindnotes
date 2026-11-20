@@ -92,12 +92,20 @@ def process_audio(
     # 4. Transcript cleanup
     cleaned = clean_transcript(raw_transcript)
 
+    # Format verbatim transcript: if chunked, include timestamp markers
+    if len(transcription.segments) > 1:
+        verbatim_transcript = "\n\n".join(
+            f"{s.format_timestamp()} {s.text}" for s in transcription.segments if s.text
+        )
+    else:
+        verbatim_transcript = raw_transcript
+
     # 5. Mode Routing & Structuring
     print(f"Structuring output via LLM ({mode} mode)...")
     if mode == "notes":
         structured_note = structure_quick_note(
             cleaned_transcript=cleaned,
-            verbatim_transcript=raw_transcript,
+            verbatim_transcript=verbatim_transcript,
         )
         title = structured_note.title
         tags = structured_note.tags
@@ -128,7 +136,7 @@ def process_audio(
         title=title,
         tags=tags,
         structured_data=structured_data,
-        verbatim_transcript=raw_transcript,
+        verbatim_transcript=verbatim_transcript,
         synced=False,
     )
     json_cache_path = save_run_cache(record)

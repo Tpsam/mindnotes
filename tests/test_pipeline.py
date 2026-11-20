@@ -93,3 +93,58 @@ def test_process_audio_offline_resilience(
     assert result["synced"] is False  # Notion push failed gracefully without crashing
     assert Path(result["cache_file"]).exists()
     assert Path(result["processed_file"]).exists()
+
+
+@patch("mindnotes.pipeline.normalize_audio")
+@patch("mindnotes.pipeline.TranscriptionEngine")
+@patch("mindnotes.pipeline.structure_quick_note")
+def test_process_audio_chunked_timestamp_formatting(
+    mock_structure,
+    mock_engine_cls,
+    mock_normalize,
+    tmp_path,
+    monkeypatch,
+):
+    mindnotes_home = tmp_path / "Mindnotes"
+    output_dir = mindnotes_home / "output"
+    processed_dir = mindnotes_home / "processed"
+    monkeypatch.setattr("mindnotes.pipeline.PROCESSED_DIR", processed_dir)
+    monkeypatch.setattr("mindnotes.storage.cache.OUTPUT_DIR", output_dir)
+    monkeypatch.setenv("NOTION_API_KEY", "")
+
+    test_audio = tmp_path / "long_memo.wav"
+    create_dummy_wav(test_audio, duration_sec=60.0)
+    mock_normalize.return_value = test_audio
+
+    mock_engine = MagicMock()
+    mock_engine.transcribe_wav.return_value = TranscriptResult(
+        text="First chunk sentence. Second chunk sentence.",
+        segments=[
+            TranscriptSegment(start=0.0, end=25.0, text="First chunk sentence."),
+            TranscriptSegment(start=25.0, end=60.0, text="Second chunk sentence."),
+        ],
+        duration_seconds=60.0,
+        model_name="fast",
+    )
+    mock_engine_cls.return_value = mock_engine
+
+    mock_structure.return_value = StructuredNote(
+        title="Long Note",
+        body_markdown="Note body",
+        tags=["Long"],
+        verbatim_transcript="[00:00] First chunk sentence.\n\n[00:25] Second chunk sentence.",
+    )
+
+    result = process_audio(
+        file_path=test_audio,
+        mode="notes",
+        model_profile="fast",
+        move_file=False,
+    )
+
+    # Verify structure_quick_note received formatted verbatim transcript with timestamps
+    mock_structure.assert_called_once()
+    called_kwargs = mock_structure.call_args.kwargs
+    assert "[00:00] First chunk sentence." in called_kwargs["verbatim_transcript"]
+    assert "[00:25] Second chunk sentence." in called_kwargs["verbatim_transcript"]
+    assert called_kwargs["cleaned_transcript"] == "First chunk sentence. Second chunk sentence."

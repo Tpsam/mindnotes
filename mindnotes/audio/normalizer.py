@@ -96,6 +96,7 @@ def normalize_audio(
     cmd = [
         str(ffmpeg_bin),
         "-y",
+        "-nostdin",
         "-i", str(input_p),
         "-ac", "1",
         "-ar", str(target_sr),
@@ -106,6 +107,7 @@ def normalize_audio(
     try:
         result = subprocess.run(
             cmd,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -141,8 +143,14 @@ def get_audio_duration_seconds(input_path: Path | str) -> float:
     if not ffmpeg_bin:
         return 0.0
 
-    cmd = [str(ffmpeg_bin), "-i", str(input_p)]
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    cmd = [str(ffmpeg_bin), "-nostdin", "-i", str(input_p)]
+    result = subprocess.run(
+        cmd,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
     for line in result.stderr.splitlines():
         if "Duration:" in line:
             try:
