@@ -45,7 +45,7 @@ def move_to_processed(source_path: Path) -> Path:
 def process_audio(
     file_path: str | Path,
     mode: str = "notes",
-    model_profile: str = "fast",
+    model_profile: Optional[str] = None,
     project: Optional[str] = None,
     move_file: bool = True,
 ) -> Dict[str, Any]:
@@ -55,27 +55,29 @@ def process_audio(
     Args:
         file_path: Path to raw audio file.
         mode: "notes" (default) or "content".
-        model_profile: "fast" (default) or "accurate".
+        model_profile: STT profile ("fast", "accurate", "parakeet"). Defaults to config.yaml.
         project: Project tag (e.g. "LIAS S2") for content mode.
         move_file: Whether to move source audio to ~/Mindnotes/processed/ when done.
 
     Returns:
         Summary dict of run results.
     """
+    config = load_config()
+    profile = model_profile or config.get("stt", {}).get("default_profile", "fast")
     source_p = Path(file_path).resolve()
     if not source_p.exists():
         raise FileNotFoundError(f"Source audio file not found: {source_p}")
 
     run_id = generate_run_id(prefix=source_p.stem[:12])
-    print(f"\n[bold green]=== Processing: {source_p.name} (Mode: {mode.upper()}, ID: {run_id}) ===[/bold green]")
+    print(f"\n[bold green]=== Processing: {source_p.name} (Mode: {mode.upper()}, Model: {profile}, ID: {run_id}) ===[/bold green]")
 
     # 1. Normalization (16kHz mono WAV)
     print("Normalizing audio via FFmpeg...")
     normalized_wav = normalize_audio(source_p)
 
     # 2. Transcription via sherpa-onnx
-    print(f"Transcribing audio with '{model_profile}' profile...")
-    engine = TranscriptionEngine(profile=model_profile)
+    print(f"Transcribing audio with '{profile}' profile...")
+    engine = TranscriptionEngine(profile=profile)
     transcription = engine.transcribe_wav(normalized_wav)
     raw_transcript = transcription.text.strip()
     duration_sec = transcription.duration_seconds

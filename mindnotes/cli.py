@@ -94,7 +94,7 @@ def run_setup(profile: str = "fast", force: bool = False):
 def run_process(
     file_path: Path,
     mode: str = "notes",
-    profile: str = "fast",
+    profile: Optional[str] = None,
     project: Optional[str] = None,
     no_move: bool = False,
 ):
@@ -269,7 +269,7 @@ try:
     def typer_run(
         file_path: Path = typer.Argument(...),
         mode: str = typer.Option("notes", "--mode", "-m"),
-        profile: str = typer.Option("fast", "--profile", "-p"),
+        profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Model profile ('fast', 'accurate', 'parakeet'). Defaults to config.yaml"),
         project: Optional[str] = typer.Option(None, "--project"),
         no_move: bool = typer.Option(False, "--no-move"),
     ):
@@ -313,7 +313,7 @@ except ImportError:
         run_p = subparsers.add_parser("run", help="Process an audio file")
         run_p.add_argument("file_path", type=Path, help="Audio file path")
         run_p.add_argument("-m", "--mode", default="notes", help="Mode: notes or content")
-        run_p.add_argument("-p", "--profile", default="fast", help="Profile: fast or accurate")
+        run_p.add_argument("-p", "--profile", default=None, help="Profile ('fast', 'accurate', 'parakeet'). Defaults to config.yaml")
         run_p.add_argument("--project", default=None, help="Project name")
         run_p.add_argument("--no-move", action="store_true", help="Do not move source file to processed/")
 
