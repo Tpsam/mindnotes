@@ -37,51 +37,68 @@ Mindnotes strictly separates source code from user operational data:
 
 ## Quickstart
 
-### 1. Setup Environment & Models
-Run the automated setup to bootstrap directories, verify/download FFmpeg, and fetch the quantized Whisper `small.en` ONNX model:
+### 1. Create Virtual Environment & Register CLI
+Clone the repository and install the package in editable mode (`-e .`), which installs all dependencies and registers the `mindnotes` command in your environment:
 
-```bash
-python -m mindnotes.cli setup
+```powershell
+# Create and activate virtual environment
+python -m venv .venv
+.venv\Scripts\activate
+
+# Install dependencies and register 'mindnotes' command
+pip install -e .
 ```
 
-### 2. Configure Notion & LLM Keys
+### 2. Download Local AI Models & FFmpeg
+Run the automated setup to bootstrap operational folders in `~/Mindnotes/`, auto-provision FFmpeg, and fetch the quantized local STT models:
+
+```powershell
+mindnotes setup
+```
+
+*(Optional: Run `mindnotes setup --profile parakeet` if you want the ultra-fast NVIDIA Parakeet model as well).*
+
+### 3. Configure Notion & LLM Keys
 Copy `.env.example` to `~/Mindnotes/.env` and add your tokens:
 
 ```env
-NOTION_API_KEY=secret_...
+NOTION_API_KEY=ntn_...
 NOTION_NOTES_DB_ID=...
 NOTION_CONTENT_DB_ID=...
 
-# Set at least one LLM key (Anthropic, OpenAI, Gemini, or DeepSeek):
-ANTHROPIC_API_KEY=sk-ant-...
-# OPENAI_API_KEY=...
+# Set at least one LLM key (DeepSeek, Anthropic, OpenAI, or Gemini):
+DEEPSEEK_API_KEY=sk-...
+# ANTHROPIC_API_KEY=sk-ant-...
+# OPENAI_API_KEY=sk-...
 # GEMINI_API_KEY=...
-# DEEPSEEK_API_KEY=...
 ```
 
-Verify your Notion connection:
-```bash
-python -m mindnotes.cli notion test
+Verify your connection and database columns:
+```powershell
+mindnotes notion test
 ```
 
-### 3. Usage
+### 4. Daily Usage
+
+#### Start the watched folder monitor:
+```powershell
+mindnotes watch
+```
 
 #### Process an audio file directly via CLI:
-```bash
-python -m mindnotes.cli run "C:\path\to\memo.m4a" --mode notes
-```
-
-#### Run the watched folder monitor:
-```bash
-python -m mindnotes.cli watch
+```powershell
+mindnotes run "C:\path\to\memo.m4a" --mode notes
 ```
 
 #### Enable silent background startup on Windows login:
-```bash
-python -m mindnotes.cli autostart enable
+```powershell
+mindnotes autostart enable
 ```
 
 #### Retry unsynced/offline entries:
+```powershell
+mindnotes retry-cached
+```
 ```bash
 python -m mindnotes.cli retry-cached
 ```
